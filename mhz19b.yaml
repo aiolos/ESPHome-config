@@ -1,0 +1,40 @@
+esphome:
+  name: co2
+  platform: ESP8266
+  board: d1_mini
+
+uart:
+  rx_pin: D7
+  tx_pin: D4
+  baud_rate: 9600
+
+sensor:
+  - platform: mhz19
+    co2:
+      name: "MH-Z19 CO2 Value"
+    temperature:
+      name: "MH-Z19 Temperature"
+    update_interval: 60s
+    automatic_baseline_calibration: false
+
+# Disable logging (uses the same uart as P1)
+logger:
+  level: WARN
+  baud_rate: 0
+  
+# Enable Home Assistant API
+api:
+
+ota:
+  #password: "SomeOtaPassword"
+
+wifi:
+  #ssid: "YourWifiSSID"
+  #password: "YourWifiPassword"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHOME-P1"
+    password: "configesp"
+
+captive_portal:
