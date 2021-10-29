@@ -29,12 +29,12 @@ ota:
   #password: "SomeOtaPassword"
 
 wifi:
-  #ssid: "YourWifiSSID"
-  #password: "YourWifiPassword"
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "ESPHOME-P1"
+    ssid: "ESPHOME-CO2"
     password: "configesp"
 
 captive_portal:

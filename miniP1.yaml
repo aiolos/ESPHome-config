@@ -1,7 +1,7 @@
 esphome:
-  name: p1
+  name: minip1
   platform: ESP8266
-  board: d1_mini
+  board: esp12e
 
 dsmr:
   id: dsmr_instance
