@@ -9,6 +9,7 @@ dsmr:
 uart:
   - rx_pin: RX
     baud_rate: 115200
+    rx_buffer_size: 1024
 
 sensor:
   - platform: dsmr
