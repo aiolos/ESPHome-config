@@ -59,3 +59,4 @@ sensor:
     export_reactive_energy:
       name: "SDM220M Export Reactive Energy"
     update_interval: 60s
+    address: 1
