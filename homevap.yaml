@@ -1,0 +1,68 @@
+esphome:
+  name: modbus
+  platform: ESP8266
+  board: d1_mini
+
+# Enable/Disable logging
+logger:
+  #level: VERBOSE
+  #baud_rate: 0
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+wifi:
+  #ssid: YourSSID
+  #password: YourPassword
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESP-Modbus"
+    password: "configesp"
+
+captive_portal:
+
+uart:
+  id: mod_bus
+  tx_pin: D7
+  rx_pin: D6
+  baud_rate: 9600
+  stop_bits: 1
+  
+modbus:
+  flow_control_pin: D5
+  id: modbus1
+  send_wait_time: 1000ms
+
+modbus_controller:
+  - id: homevap
+    address: 0x04
+    modbus_id: modbus1
+    setup_priority: -10
+    #command_throttle: 250ms
+    update_interval: 15s
+
+sensor:
+  - platform: modbus_controller
+    modbus_controller_id: homevap
+    id: duct_humidity
+    name: "Humidity"
+    address: 0x0F
+    unit_of_measurement: "%"
+    register_type: holding
+    value_type: S_WORD
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: homevap  
+    id: duct_temperature
+    name: "Temperature"
+    address: 0x10
+    unit_of_measurement: "C"
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
