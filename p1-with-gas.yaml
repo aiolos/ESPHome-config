@@ -1,0 +1,87 @@
+esphome:
+  name: p1
+  platform: ESP8266
+  board: d1_mini
+
+dsmr:
+  id: dsmr_instance
+
+uart:
+  - rx_pin: RX
+    baud_rate: 115200
+    rx_buffer_size: 1024
+
+sensor:
+  - platform: dsmr
+    energy_delivered_tariff1:
+      name: Energy Consumed Tariff 1
+    energy_delivered_tariff2:
+      name: Energy Consumed Tariff 2
+    energy_returned_tariff1:
+      name: Energy Produced Tariff 1
+    energy_returned_tariff2:
+      name: Energy Produced Tariff 2
+    power_delivered:
+      name: Power Consumed
+    power_returned:
+      name: Power Produced
+    electricity_failures:
+      name: Electricity failures
+    electricity_long_failures:
+      name: Long Electricity failures
+    voltage_l1:
+      name: Voltage Phase 1
+    voltage_l2:
+      name: Voltage Phase 2
+    voltage_l3:
+      name: Voltage Phase 3
+    current_l1:
+      name: Current Phase 1
+    current_l2:
+      name: Current Phase 2
+    current_l3:
+      name: Current Phase 3
+    power_delivered_l1:
+      name: Power Consumed Phase 1
+    power_delivered_l2:
+      name: Power Consumed Phase 2
+    power_delivered_l3:
+      name: Power Consumed Phase 3
+    power_returned_l1:
+      name: Power Produced Phase 1
+    power_returned_l2:
+      name: Power Produced Phase 2
+    power_returned_l3:
+      name: Power Produced Phase 3
+    gas_delivered:
+      name: Gas Consumed
+
+text_sensor:
+  - platform: dsmr
+    identification:
+      name: "DSMR Identification"
+    p1_version:
+      name: "DSMR Version"
+
+
+# Disable logging (uses the same uart as P1)
+logger:
+  level: WARN
+  baud_rate: 0
+  
+# Enable Home Assistant API
+api:
+
+ota:
+  #password: "SomeOtaPassword"
+
+wifi:
+  ssid: YourSSID
+  password: YourPassword
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHOME-P1"
+    password: "configesp"
+
+captive_portal:
