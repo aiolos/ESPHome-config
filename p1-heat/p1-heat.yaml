@@ -1,0 +1,57 @@
+# ESPHome config for P1 heating measurements (Warmtelink / Stadsverwarming / Stadswarmte)
+esphome:
+  includes:
+  - uart_read_line_sensor.h
+  name: p1heat
+  platform: ESP8266
+  board: d1_mini
+
+logger:
+  level: VERBOSE #makes uart stream available in esphome logstream
+  baud_rate: 0 #disable logging over uart
+
+uart:
+  id: uart_bus
+  rx_pin: RX
+  baud_rate: 115200
+
+text_sensor:
+- platform: custom
+  lambda: |-
+    auto uartLine = new UartReadLineSensor(id(uart_bus));
+    App.register_component(uartLine);
+
+    return {uartLine};
+  text_sensors:
+    id: "uartLine"
+
+- platform: template
+  name: "timestamp"
+  update_interval: 10s
+  lambda: |-
+    String str = String(id(uartLine).state.c_str());
+    return {str.substring(11, 23).c_str()};
+
+- platform: template
+  name: "GJ"
+  update_interval: 10s
+  lambda: |-
+    String str = String(id(uartLine).state.c_str());
+    return {str.substring(26, 32).c_str()};
+
+# Enable Home Assistant API
+api:
+
+ota:
+#password: "SomeOtaPassword"
+
+wifi:
+  ssid: WiFiSSID
+  password: YouWifiPassword
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHOME-P1"
+    password: "configesp"
+
+captive_portal:

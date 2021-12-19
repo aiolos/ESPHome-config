@@ -20,6 +20,10 @@ The `p1.yaml` file has the basic configuration for my P1 PCB. Adapt the config f
 ### ESP-01 version
 The `miniP1.yaml` file is for the mini version, used with a ESP-01.
 
+### P1 - Heat (Stadsverwarming / Warmtelink)
+If you have a 'warmtelink' P1 port for measuring heating (stadsverwarming / stadswarmte) the `p1-heat/p1-heat.yaml` can be used.
+The `uart_read_line_sensor.h` is also required while building the .
+
 ## CC1101 Ventilation remotes (Itho/Duco)
 
 ### Itho ventilation remote
