@@ -6,7 +6,7 @@ esphome:
 # Enable/Disable logging
 logger:
   #level: VERBOSE
-  baud_rate: 0
+  baud_rate: 0 ## Must be 0 to prevent reading issues and buffer overflows
 
 # Enable Home Assistant API
 api:
