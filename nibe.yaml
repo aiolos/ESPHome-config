@@ -1,0 +1,58 @@
+esphome:
+  name: nibe
+  platform: ESP8266
+  board: d1_mini
+# This is a work-in-progress configuration for Nibe heatpumps.
+
+# Enable/Disable logging
+logger:
+  #level: VERBOSE
+  #baud_rate: 0
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+wifi:
+  #ssid: YourSSID
+  #password: YourPassword
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESP-Nibe"
+    password: "configesp"
+
+captive_portal:
+
+uart:
+  id: mod_bus
+  tx_pin: D7
+  rx_pin: D6
+  baud_rate: 9600
+  stop_bits: 1
+  
+modbus:
+  flow_control_pin: D5
+  id: modbus1
+  send_wait_time: 1000ms
+
+modbus_controller:
+  - id: nibe
+    #TODO: Default Modbus address to be set
+    address: 0x04 
+    modbus_id: modbus1
+    setup_priority: -10
+    #command_throttle: 250ms
+    update_interval: 15s
+
+sensor:
+  - platform: modbus_controller
+    modbus_controller_id: nibe  
+    id: software_version
+    name: "Software Version"
+    address: 43001
+    unit_of_measurement: ""
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0

@@ -1,17 +1,21 @@
 # ESPHome-config
 
-This repository has various ESPHome configs for my own made PCBs. Check https://enri.nl/?page=pcb for info about the PCBs.
+This repository has various ESPHome configs for my own made PCBs. Check https://enri.nl/pcb for info about the PCBs.
 
 ## P1 - Smart Meter
 ### DSMR2/3/4/5 Wemos version
 The [`p1.yaml`](p1.yaml) and [`p1-with-gas.yaml`](p1-with-gas.yaml) files have the basic configuration for my P1 PCB. The config only differs on the gas_delivered-sensor. ESPHome docs can be found [here](https://esphome.io/components/sensor/dsmr.html).
 
+The configuration for the combination print with P1 and a water meter can be found in the [`p1-with-water.yaml`](p1-with-water.yaml) file.
+
 ### DSMR5 ESP-01 version
-The [`miniP1.yaml`](miniP1.yaml) file is for the mini version, used with an ESP-01.
+The [`miniP1.yaml`](miniP1.yaml) file is for the mini version, used with an ESP-01s.
 
 ### P1 - Heat (Stadsverwarming / Warmtelink)
 If you have a 'warmtelink' P1 port for measuring heating (stadsverwarming / stadswarmte) the [`p1-heat/p1-heat.yaml`](p1-heat/p1-heat.yaml) can be used.
 The [`uart_read_line_sensor.h`](uart_read_line_sensor.h) is also required while building the firmware.
+
+Please note that this print can't be used with heat measurement with IR optical readout, like L+G Ultraheat. Only recently installed devices with P1 (RJ12) ports can be used.
 
 ## Modbus 
 
@@ -24,12 +28,14 @@ In [`eastron.yaml`](eastron.yaml) is the configuration for Eastron SDM modbus de
 ### HomEvap Humidifiers and coolers
 In [`homevap.yaml`](homevap.yaml) is the configuration for [HomEvap](https://www.homevap.nl) devices. Currently only for reading values, but expected to have setting values soon (hardware already supports it, only the lambda functions in the yaml have to be written)
 
+### Nibe heatpumps
+See an example file at [`nibe.yaml`](nibe.yaml). More registers can be found in the models list in the [NibePi repo](https://github.com/anerdins/nibepi/tree/master/models).
+
+
 ### Other modbus devices
 Other modbus devices should also work, as long as the registers are known. A lot of information can be found [in the esphome docs](https://esphome.io/components/modbus_controller.html)
 
-For example:
- - Nibe heatpumps
- - kWh-metering devices
+For example kWh-metering devices.
 
 ## CC1101 Ventilation remotes (Itho/Duco)
 
