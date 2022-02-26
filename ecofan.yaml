@@ -1,0 +1,41 @@
+## With using mqtt in ESPEasy, the following config can be used in HA to control the Itho
+## Topics depend on your MQTT-settings in ESPEasy
+- platform: mqtt
+  name: Ecofan
+  command_topic: "ESP/Itho/cmd"
+  state_topic: "ESP/Itho/Itho/State"
+  state_value_template: "{% if value|float==0 %}State 0{% endif %}{% if value|float >0 %}State 1{% endif %}"
+  payload_off: "State 0"
+  payload_on: "State 1"
+  preset_modes:
+    - "off"
+    - "low"
+    - "medium"
+    - "high"
+    - "full"
+  preset_mode_command_topic: "ITHO/fan/cmd"
+  preset_mode_command_template: >
+    {% if value == 'low' %}
+      State 1
+    {% elif value == 'medium' %}
+      State 2
+    {% elif value == 'high' %}
+      State 3
+    {% elif value == 'full' %}
+      State 4
+    {% else %}
+      State 0
+    {% endif %}
+  preset_mode_state_topic: "ESP/Itho/Itho/State"
+  preset_mode_value_template: >
+    {% if value == '1' %}
+      low
+    {% elif value == '2' %}
+      medium
+    {% elif value == '3' %}
+      high
+    {% elif value == '4' %}
+      full
+    {% else %}
+      off
+    {% endif %}
