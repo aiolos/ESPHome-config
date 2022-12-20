@@ -1,3 +1,5 @@
+# Configuration for Solax X1 Boost inverters.
+
 substitutions:
   prefix: Solax
 
