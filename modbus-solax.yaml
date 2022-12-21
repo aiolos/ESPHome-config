@@ -1,0 +1,244 @@
+# Configuration for Solax X1 Boost inverters.
+
+substitutions:
+  prefix: Solax
+
+esphome:
+  name: solax
+  platform: ESP8266
+  board: d1_mini
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "ac66b32bb32a860377529dfcf3585979"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESP-Modbus"
+    password: "configesp"
+
+captive_portal:
+  
+# Enable/Disable logging
+logger:
+  # level: VERY_VERBOSE
+  baud_rate: 0 ## Must be 0 to prevent reading issues and buffer overflows
+
+uart:
+  id: mod_bus
+  tx_pin: D7
+  rx_pin: D6
+  baud_rate: 9600
+  stop_bits: 1
+  
+modbus:
+  flow_control_pin: D5
+  id: modbus1
+  send_wait_time: 1000ms
+
+modbus_controller:
+  - id: solax
+    ## the Modbus device addr (defaults to 247 (0xF7) for goodwe inverters)
+    address: 0x1
+    modbus_id: modbus1
+    setup_priority: -10
+    #command_throttle: 250ms
+    update_interval: 15s
+
+sensor:
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} PV1 Input Voltage"
+    address: 0x400
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: V
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} PV2 Input Voltage"
+    address: 0x401
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: V
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} PV1 Input Current"
+    address: 0x402
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: A
+    device_class: current
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} PV2 Input Current"
+    address: 0x403
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: A
+    device_class: current
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Grid Voltage"
+    address: 0x404
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: V
+    device_class: voltage
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Grid Frequency"
+    address: 0x407
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 2
+    unit_of_measurement: Hz
+    device_class: frequency
+    state_class: measurement
+    filters:
+      - multiply: 0.01
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Output Current"
+    address: 0x40A
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: A
+    device_class: current
+    state_class: measurement
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Temperature"
+    address: 0x40D
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 0
+    unit_of_measurement: C
+    device_class: temperature
+    state_class: measurement
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Inverter Power"
+    address: 0x40e
+    register_type: read
+    value_type: U_WORD
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    id: ${prefix}_power_dc1
+    name: "${prefix} Power DC1"
+    address: 0x414
+    register_type: read
+    value_type: U_WORD
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    id: ${prefix}_power_dc2
+    name: "${prefix} Power DC2"
+    address: 0x415
+    register_type: read
+    value_type: U_WORD
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    on_value:
+      then:
+        component.update: ${prefix}_total_dc_power
+  - platform: template
+    id: ${prefix}_total_dc_power
+    name: "${prefix} Total DC Power"
+    lambda: |-
+      return (id(${prefix}_power_dc1).state + id(${prefix}_power_dc2).state);
+    update_interval: never
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Production Total"
+    address: 0x423
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: kWh
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    name: "${prefix} Production Today"
+    address: 0x425
+    register_type: read
+    value_type: U_WORD
+    accuracy_decimals: 1
+    unit_of_measurement: kWh
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: 0.1
+
+text_sensor:
+  - platform: modbus_controller
+    modbus_controller_id: solax
+    id: ${prefix}_run_mode
+    name: "${prefix} Run Mode"
+    address: 0x40f
+    bitmask: 0
+    register_type: read
+    raw_encode: HEXBYTES
+    lambda: |-
+      uint16_t value = modbus_controller::word_from_hex_str(x, 0);
+      switch (value) {
+        case 0: return std::string("Waiting");
+        case 1: return std::string("Checking");
+        case 2: return std::string("Normal");
+        case 3: return std::string("Fault");
+        case 4: return std::string("Permanent Fault");
+        case 5: return std::string("Update");
+        case 6: return std::string("Off-grid waiting");
+        case 7: return std::string("Off-grid");
+        case 8: return std::string("Self Testing");
+        case 9: return std::string("Idle");
+        case 10: return std::string("Standby");
+        default: return std::string("Unknown");
+      }
+      return x;
