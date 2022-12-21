@@ -200,7 +200,7 @@ sensor:
     accuracy_decimals: 1
     unit_of_measurement: kWh
     device_class: energy
-    state_class: total
+    state_class: total_increasing
     filters:
       - multiply: 0.1
   - platform: modbus_controller
