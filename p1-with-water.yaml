@@ -1,15 +1,69 @@
+# this template uses the secrets.yaml for a few authentications, alter where needed:
+# !secret 'ota_password' , 'api_password', 'wifi_ssid' and 'wifi_password'
+
+
+#  ⬇ Config your entity variables names here:  ⬇ # 
+substitutions:
+  device_description: P1 poort smartmeter lezer en waterverbruik
+  friendly_name:  P1-smartmeter_watermeter
+  devicename: p1-dsmr-watermeter 
+
+#-------------------------------------------------#
+
 esphome:
   name: p1water
   platform: ESP8266
   board: d1_mini
+  esp8266_restore_from_flash: true # restore values for watermeter
+  name_add_mac_suffix: false
 
 dsmr:
   id: dsmr_instance
+  max_telegram_length: 1700
+  # ⬇ trottle the DSMR telegram OUTPUT for every X-seconds, DSMR5.0 default: 1 msg/second⬇ 
+  request_interval: 10s
 
 uart:
   - rx_pin: RX
     baud_rate: 115200
-    rx_buffer_size: 1024
+    rx_buffer_size: 1700
+
+
+# Disable logging (uses the same uart pins as P1)
+logger:
+  level: VERBOSE
+  baud_rate: 0
+  
+# ⬇ Enable Home Assistant API ⬇ 
+ota:
+ password: !secret ota_password
+ safe_mode: true  #go to safe_mode if update fails
+ reboot_timeout: 5min
+ num_attempts: 5
+
+api:
+  password: !secret api_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: “${devicename} Fallback AP"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# ⬇ Enable direct webinterface ⬇ 
+web_server:
+  port: 80
+  include_internal: true
+
+#----------------------end of config--------------------------------------------------------#
+
+
+ #------------------------# Watermeter #------------------------#
 
 sensor:
   - platform: integration
@@ -18,6 +72,7 @@ sensor:
     sensor: watermeter
     time_unit: min
     accuracy_decimals: 0
+    restore: true #restores the values before flash-update, but does some minor wearout on eprom
 
   - platform: pulse_counter
     pin: GPIO2
@@ -25,77 +80,154 @@ sensor:
     internal_filter: 100ms
     update_interval: 10s
     accuracy_decimals: 0
+    unit_of_measurement: "L/min"
 
+
+  #------------------------# P1 DSMR meter #------------------------#
   - platform: dsmr
     energy_delivered_tariff1:
-      name: Energy Consumed Tariff 1
+      name: "Energy Consumed Tariff 1"
+      id: EDT1
+      state_class: total_increasing
+      unit_of_measurement: "kWh"
     energy_delivered_tariff2:
-      name: Energy Consumed Tariff 2
+      name: "Energy Consumed Tariff 2"
+      id: EDT2
+      state_class: total_increasing
     energy_returned_tariff1:
-      name: Energy Produced Tariff 1
+      name: "Energy Produced Tariff 1"
+      id: EDR1
+      icon: mdi:CurrencyEur
+      state_class: total_increasing
+      unit_of_measurement: "kWh"
     energy_returned_tariff2:
-      name: Energy Produced Tariff 2
+      name: "Energy Produced Tariff 2"
+      id: EDR2
+      state_class: total_increasing
+      unit_of_measurement: "kWh"
     power_delivered:
-      name: Power Consumed
+      name: "Power Consumed"
+      id: PowerC
     power_returned:
-      name: Power Produced
-    electricity_failures:
-      name: Electricity failures
-    electricity_long_failures:
-      name: Long Electricity failures
-    voltage_l1:
-      name: Voltage Phase 1
-    voltage_l2:
-      name: Voltage Phase 2
-    voltage_l3:
-      name: Voltage Phase 3
+      name: "Power Produced"
+      id: PowerR
     current_l1:
-      name: Current Phase 1
+      name: "Current Phase 1"
+      icon: mdi:alternating-current   
+    electricity_failures:
+      name: "Electricity Failures"
+      icon: mdi:alert
+    electricity_long_failures:
+      name: "Long Electricity Failures"
+      icon: mdi:alert
+    voltage_l1:
+      name: "Voltage Phase 1"
+      icon: mdi:high-voltage
+    voltage_l2:
+      name: "Voltage Phase 2"
+      icon: mdi:high-voltage
+    voltage_l3:
+      name: "Voltage Phase 3"
+      icon: mdi:high-voltage
+    
+  # ⬇ 3 phase systems are disabled by default in HA frontend, enable here or in the HA frontend  ⬇ #
     current_l2:
-      name: Current Phase 2
+      disabled_by_default: true
+      name: "Current Phase 2"
+      icon: mdi:alternating-current
     current_l3:
-      name: Current Phase 3
+      disabled_by_default: true
+      name: "Current Phase 3"
+      icon: mdi:alternating-current    
     power_delivered_l1:
-      name: Power Consumed Phase 1
+      disabled_by_default: true
+      name: "Power Consumed Phase 1"
     power_delivered_l2:
-      name: Power Consumed Phase 2
+      disabled_by_default: true
+      name: "Power Consumed Phase 2"
     power_delivered_l3:
-      name: Power Consumed Phase 3
+      disabled_by_default: true
+      name: "Power Consumed Phase 3"
     power_returned_l1:
-      name: Power Produced Phase 1
+      disabled_by_default: true
+      name: "Power Produced Phase 1"   
     power_returned_l2:
-      name: Power Produced Phase 2
+      disabled_by_default: true
+      name: "Power Produced Phase 2" 
     power_returned_l3:
-      name: Power Produced Phase 3
-    #gas_delivered:
-    #  name: Gas Consumed
+      disabled_by_default: true
+      name: "Power Produced Phase 3"
+
+  #----------------------------------------⬇GASMETER⬇----------------------------------------------------#
+
+ # ⬇ disable when no gasmeter is used ⬇ #    
+    gas_delivered:
+      name: "Gas Consumed"
+      icon: mdi:GasCylinder
+      device_class: 'gas'
+      state_class: total_increasing
+      unit_of_measurement: "m³"
+#--------------------------------------⬇TEMPLATE SENSORS⬇-----------------------------------------------#
+  - platform: template
+    name: total energy consumed
+    lambda: |-
+      return (id(EDT1).state + id(EDT2).state);    
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+
+  - platform: template
+    name: total energy returned
+    lambda: |-
+      return (id(EDR1).state + id(EDR2).state);    
+    unit_of_measurement: "kWh"
+    state_class: "total_increasing"
+
+#--------------------------------------INTERNAL SENSORS⬇-----------------------------------------------#
 
 text_sensor:
   - platform: dsmr
     identification:
-      name: "DSMR Identification"
+      name: DSMR Identification
+      internal: true
     p1_version:
-      name: "DSMR Version"
+      name: DSMR Version
+      internal: true
+    electricity_tariff:
+      name: current tariff plan 
+      id: CTP
+    electricity_failure_log:
+      name: "electricity failure log"
+    message_short:
+      name: "electricity meter message"
+    message_long:
+      name: "electricity meter message long"
+      internal: true
 
+   # show some info about connection on the webserver page   
+  - platform: wifi_info
+    ip_address:
+      name: IP-adres
+      id: ip_adres
+      icon: mdi:ip-network
+      internal: true  #disable to show IP into Home-assistant frontend.
+    ssid:
+      name: Netwerk
+      id: netwerk
+      icon: mdi:access-point-network
+      internal: true
+    mac_address:
+      name: Mac-adres
+      id: mac_adres
+      icon: mdi:folder-key-network-outline 
+      internal: true
 
-# Disable logging (uses the same uart as P1)
-logger:
-  level: VERBOSE
-  baud_rate: 0
-  
-# Enable Home Assistant API
-api:
+  - platform: version
+    name: ESPHome Version
+    hide_timestamp: true  
+    internal: true
 
-ota:
-  #password: "SomeOtaPassword"
-
-wifi:
-  #ssid: YourSSID
-  #password: YourPassword
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "ESPHOME-P1"
-    password: "configesp"
-
-captive_portal:
+#--------------------------------------⬇Buttons⬇-----------------------------------------------#
+button:    
+  - platform: restart
+    name: "${friendly_name} restart"
+    entity_category: config   
