@@ -1,0 +1,296 @@
+esphome:
+  name: modbusabb
+  platform: ESP8266
+  board: d1_mini
+
+# Enable/Disable logging
+logger:
+  #level: VERBOSE
+  baud_rate: 0 ## Must be 0 to prevent reading issues and buffer overflows
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "ac66b32bb32a860377529dfcf3585979"
+
+wifi:
+  #ssid: YourSSID
+  #password: YourPassword
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESP-Modbus"
+    password: "configesp"
+
+captive_portal:
+
+uart:
+  id: mod_bus
+  tx_pin: D7
+  rx_pin: D6
+  baud_rate: 9600
+  parity: EVEN
+  rx_buffer_size: 1024
+  
+modbus:
+  flow_control_pin: D5
+  id: modbus1
+  send_wait_time: 1000ms
+
+modbus_controller:
+  - id: abb_ev
+    ## the Modbus device addr (defaults to 247 (0xF7) for goodwe inverters)
+    address: 0x1
+    modbus_id: modbus1
+    setup_priority: -10
+    #command_throttle: 250ms
+    update_interval: 15s
+
+sensor:
+## 1 Total Energy (kWh)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Import energy total"
+    address: 0x5000
+    register_type: holding
+    value_type: U_QWORD
+    device_class: "energy"
+    unit_of_measurement: "kWh"
+    accuracy_decimals: 4
+    state_class: "total_increasing"
+    filters:
+    - multiply: 0.0001
+#  - platform: modbus_controller
+#    modbus_controller_id: abb_ev
+#    name: "Export energy total"
+#    address: 0x5004
+#    register_type: holding
+#    value_type: U_QWORD
+#    device_class: energy
+#    unit_of_measurement: "kWh"
+#    accuracy_decimals: 4
+#    state_class: "total_increasing"
+#    filters:
+#    - multiply: 0.0001
+#  - platform: modbus_controller
+#    modbus_controller_id: abb_ev
+#    name: "Net energy total"
+#    address: 0x5008
+#    register_type: holding
+#    value_type: S_QWORD
+#    device_class: energy
+#    unit_of_measurement: "kWh"
+#    accuracy_decimals: 4
+#    state_class: total
+#    filters:
+#    - multiply: 0.0001
+
+
+  ## 3 Instantaneous values
+  ## 3.1 Voltage (V)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Voltage L1-N"
+    address: 0x5B00
+    register_type: holding
+    value_type: U_DWORD
+    accuracy_decimals: 1
+    device_class: voltage
+    unit_of_measurement: "V"
+    filters:
+    - multiply: 0.1
+
+  ## 3.2 Current (A)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Current L1"
+    address: 0x5B0C
+    register_type: holding
+    value_type: U_DWORD
+    accuracy_decimals: 2
+    device_class: current
+    unit_of_measurement: "A"
+    filters:
+    - multiply: 0.01
+
+  ## 3.3 Active Power (Watt)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Power total"
+    address: 0x5B14
+    register_type: holding
+    value_type: S_DWORD
+    accuracy_decimals: 2
+    device_class: power
+    unit_of_measurement: "W"
+    filters:
+    - multiply: 0.01
+
+  ## 3.4 Frequency (Hz)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Frequency"
+    address: 0x5B2C
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    device_class: frequency
+    unit_of_measurement: "Hz"
+    filters:
+    - multiply: 0.01
+  ## 3.5 Power factor (-)
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Power factor total"
+    address: 0x5B3A
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 3
+    device_class: power_factor
+    filters:
+    - multiply: 0.001
+
+  # 7 Info Rate
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    id: rated_voltage
+    name: "Rated Voltage"
+    address: 0x040C
+    register_type: holding
+    value_type: U_DWORD
+    entity_category: diagnostic
+    device_class: voltage
+    unit_of_measurement: "V"
+    skip_updates: 60
+    filters:
+    - multiply: 0.1
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    id: rated_current
+    name: "Rated Current"
+    address: 0x040E
+    register_type: holding
+    value_type: U_DWORD
+    entity_category: diagnostic
+    device_class: current
+    unit_of_measurement: "A"
+    skip_updates: 60
+    filters:
+    - multiply: 0.01
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    id: maximum_current
+    name: "Maximum Current"
+    address: 0x0411
+    register_type: holding
+    value_type: U_DWORD
+    entity_category: diagnostic
+    device_class: current
+    unit_of_measurement: "A"
+    skip_updates: 60
+    filters:
+    - multiply: 0.01
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    id: rated_frequency
+    name: "Rated Frequency"
+    address: 0x0410
+    register_type: holding
+    value_type: U_WORD
+    entity_category: diagnostic
+    device_class: frequency
+    unit_of_measurement: "Hz"
+    skip_updates: 60
+    filters:
+    - multiply: 0.01
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    id: active_pulse_constant
+    name: "Active pulse constant"
+    address: 0x0413
+    register_type: holding
+    value_type: U_WORD
+    entity_category: diagnostic
+    unit_of_measurement: "imp/kWh"
+    skip_updates: 60
+
+
+  ## 4 Production data and identification
+text_sensor:
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Serial Number"
+    address: 0x0402
+    register_type: holding
+    response_size: 6
+    entity_category: diagnostic
+    raw_encode: HEXBYTES
+    skip_updates: 60
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Meter firmware version"
+    address: 0x8908
+    register_type: holding
+    response_size: 16
+    entity_category: diagnostic
+    skip_updates: 60
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Type designation"
+    address: 0x8960
+    register_type: holding
+    response_size: 8
+    entity_category: diagnostic
+    skip_updates: 60
+
+
+number:
+  ## 6 Display
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Auto Mode Duration"
+    register_type: holding
+    address: 0x1000
+    value_type: U_WORD
+    min_value: 4
+    max_value: 20
+    step: 1
+    unit_of_measurement: "sec"
+    icon: mdi:timer
+    entity_category: config
+#  - platform: modbus_controller
+#    modbus_controller_id: abb_ev
+#    name: "Auto Mode Exiting Duration"
+#    address: 0x1003
+#    value_type: U_WORD
+#    min_value: 4
+#    max_value: 20
+#    step: 1
+#    register_type: holding
+#    unit_of_measurement: "sec"
+#    icon: mdi:timer
+#    entity_category: config
+#  - platform: modbus_controller
+#    modbus_controller_id: abb_ev
+#    id: backlight_on
+#    name: "Backlight On"
+#    register_type: holding
+#    address: 0x1005
+#    value_type: U_WORD
+#    min_value: 5
+#    max_value: 60
+#    step: 1
+#    unit_of_measurement: "sec"
+#    entity_category: config
+#    icon: mdi:timer
+  # 7 Info Rate
+  - platform: modbus_controller
+    modbus_controller_id: abb_ev
+    name: "Communication Address"
+    entity_category: config
+    register_type: holding
+    address: 0x8900
+    value_type: U_WORD
+    icon: mdi:label
+
