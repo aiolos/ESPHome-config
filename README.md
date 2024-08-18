@@ -38,7 +38,7 @@ Other modbus devices should also work, as long as the registers are known. A lot
 For example kWh-metering devices.
 
 ## Victron charger control
-For the Blue Smart IP22 battery chargers from victron some examples have been added to read out and control through the (hidden) serial port of the devices. See [victron.md](victron-charger-control/victron.md) for more information.
+For the Blue Smart IP22 battery chargers from victron some examples have been added to read out and control through the (hidden) serial port of the devices. See [readme.md](victron-charger-control/readme.md) for more information.
 
 ## CC1101 Ventilation remotes (Itho/Duco)
 
