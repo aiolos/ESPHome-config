@@ -1,0 +1,322 @@
+############################################################################
+# Project: victron-IP22-ve-direct
+#
+# Purpose: Connect to Victron IP22 24V Chargers for read out and control
+#
+# Implementation:
+#   For reading data via the serial interface the following external component
+#   is used:  # github://KinDR007/VictronMPPT-ESPHOME@main
+#   Meanwhile (August 2024, build #158) it supports 24V/16A model
+#
+#   Control is implemented by direct writing to the UART
+#   Web server has been disabled to reduce the load
+#
+# Author: nob / Aiolos
+# Version: 1.7
+# Date: 2024-08-18
+#
+# History:
+# v1.1: Added time sync with homeassistant / output time every 10 secs
+# v1.2: Added second UART for IP22 8A version
+# v1.5: Defined two victron devices for 8A and 12A charger
+#       Changed naming to allow two sets of sensors
+# v 1.6 Added condition statement to on_value:
+#       If charger_current sent by HA is less then 1.5A then switch off Chargers
+# v 1.7 Added current values for IP22 24|16
+#
+# ToDo:
+# Implement algorithm to use dynamically both chargers to cover a range of 2-20A.
+# Control required Charger Power on/off from ESP using Homeassistant service 'switch_on'
+#
+############################################################################
+
+substitutions:
+  programname: "nvs.victron.vedirect"
+  programversion: "1.7"
+  programlastchange: "2024-08-17"
+
+esphome:
+  name: victron-ve
+  friendly_name: victron-ve-direct
+
+esp32:
+  board: wemos_d1_mini32
+
+# Enable logging
+logger:
+  baud_rate: 0
+  level: DEBUG # NONE, ERROR, WARN, INFO, DEBUG (default), VERBOSE, VERY_VERBOSE
+  logs:
+    sensor: INFO
+    sensor.id_ac_charger_current: DEBUG
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "1d415e50da3e81f167bdd734d80de705"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+captive_portal:
+
+#web_server:
+# port: 80
+
+
+# Sync time with Homeassistant (local network access)
+time:
+  - platform: homeassistant
+    id: ha_time
+    on_time:
+      # send regularly the current time to text_sensor
+      - seconds: /10 # every ten seconds
+        then:
+          - text_sensor.template.publish:
+              id: time_to_text
+              state: !lambda |-
+                char str[20];
+                time_t currTime = id(ha_time).now().timestamp;
+                strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
+                return { str };
+
+      #- minutes: /1
+      #  then:
+      #    - lambda: |-
+      #        id(ip22_8a_firmware_version).publish_state();
+
+
+##################################################################
+# External component, that just reads data from the ve.direct port
+external_components:
+  - source: github://KinDR007/VictronMPPT-ESPHOME@main
+    #refresh: 1min  # default is 1day
+
+#
+# It is designed for Victron products, that officially support
+# this interface (like e.g. MPPT chargers).
+# The IP22 AC charger does NOT officially support ve.direct, but
+# has an internal 5-pin connector port, which I have connected with
+# a 4-wire cable to the D1 mini.
+# See https://github.com/pvtex/Victron_BlueSmart_IP22 for instructions
+# how to access the serial port.
+# For this reason there is a limited set of sensors, that provide
+# reasonable data:
+#
+# Numerical Sensors:
+#    battery_voltage:       # IP22: 26.780 V (example)
+#    battery_current:       # IP22: 3.000 A (example)
+#    charging_mode_id:      # IP22: 3 (example for Bulk mode)
+#    error_code:            # IP22: 0 (example)
+# Text sensor:
+#    error:                 # IP22: "No error" (example)
+#    charging_mode:         # IP22: "Bulk" (example)
+#    device_type            # New with build #158 of VictronMPPT-ESPHOME@main
+#    serial_number          # New with build #158 of VictronMPPT-ESPHOME@main
+#
+# Remark:
+# The IP22 chargers have the following minimum charging currents:
+#   Model 24|16 : Minimum current 4A
+#   Model 24|12 : Minimum current 3A
+#   Model 24|8  : Minimum current 2A
+# No setting has been found to set the charger to a non-charging
+# mode.
+##################################################################
+
+uart:
+  - id: uart_ip22_16A
+    tx_pin: GPIO3  # ESP32 UART0
+    rx_pin: GPIO1  # ESP32 UART0
+    baud_rate: 19200
+    rx_buffer_size: 256
+
+    ### Enable the following is for hex debugging
+    #debug:
+    #  direction: both # TX RX both
+    #  dummy_receiver: false
+    #  after:
+    #    delimiter: "\n"
+    #  sequence:
+    #    - lambda: UARTDebug::log_string(direction, bytes);
+
+### Define the Victron devices
+victron:
+  - id: victron16A
+    uart_id: uart_ip22_16A
+    #throttle: 3s  # send sensor data only every 3s rather than every second
+
+########################################################################################################
+# The code to control the IP22 charger current is based on the following python example from
+# https://community.victronenergy.com/questions/258633/bluesmart-ip22-control-charge-current.html
+########################################################################################################
+#    ser_loadbat1 = serial.Serial("/dev/ttyTTLNight", 19200)
+#
+#    numP1_bat1 = (int)(bat_night_current * 10)
+#    numP2_bat1 = (0x70 - numP1_bat1) & 0xFF
+#    hexP1_bat1 = "%02X" % (numP1_bat1)
+#    hexP2_bat1 = "%02X" % (numP2_bat1)
+#
+#    msg_bat1 =  ':8F0ED00' + hexP1_bat1[0] + hexP1_bat1[1] + '00' + hexP2_bat1[0] + hexP2_bat1[1] + '\n'
+#
+#    ser_loadbat1.write(msg_bat1.encode())
+########################################################################################################
+# Some protocol specific information as found here: https://www.victronenergy.com/live/vedirect_protocol:faq
+#
+# Q3: How do I calculate the HEX checksum?
+#
+# Example: Get Battery Capacity
+#   :70010003E<LF>     -> Command;  checksum 0x55 – 0x7 – 0x0 – 0x10 – 0x0 = 0x3E
+#   :7001000C80076<LF> -> Response; checksum 0x55 – 0x7 – 0x0 – 0x10 – 0x0 – 0xC8 – 0x0 = 0x76
+#
+# Anwser: VE.Direct/VE.Hex data is encoded as little endian. The checksum needs to be a byte,
+#         therefore you need to wrap it while calculating the checksum.
+#
+#   So in code you can loop through the message as in the following pseudo code:
+#
+#      byte checksum = 0x55;
+#      byte message[] = { 0x7, 0xff, 0x0f, 0x00 };
+#      for (int i =0; i < sizeof(message); i++)
+#         checksum -= message[i];
+# ------------------------------------------------------------------------------------------------
+# Q7: How about frequency of transmitting HEX messages
+#
+#  How often you send a HEX message doesn't matter: there is no minimum. But beware, after receiving
+#  a HEX message, the Victron product will stop sending its usual TEXT frames for a few seconds.
+#  Therefore, if you keep sending HEX messages, you'll never receive the TEXT frame any more.
+#  Which might matter in case you are depending on data in the TEXT frame.
+########################################################################################################
+
+
+sensor:
+  # This is to control the charging current from HA, Create an input number helper to control this value from HA.
+  - platform: homeassistant
+    name: "AC Charger Current"
+    entity_id: input_number.ac_charger_current
+    id: id_ac_charger_current
+    unit_of_measurement: 'A'
+    device_class: 'current'
+    on_value:
+      then:
+        # - lambda: !lambda |-
+        #     //    ESP_LOGW("main", "new value received %f", id(id_ac_charger_current).state);
+
+        if:
+          condition: # Should we switch off the chargers?
+            lambda: 'return id(id_ac_charger_current).state < 2.0;'
+          then:
+            # Turn off chargers
+            #            homeassistant.service:
+            #              service: switch.turn_off
+            #              data:
+            #                entity_id: switch.tasmota_16, switch.tasmota_17
+          else:
+            - uart.write:
+                id: uart_ip22_16A
+                data: !lambda |-
+                  std::string s;
+                  //id(victron_ve_direct_charge_current_received).publish_state(x); 
+                  switch ((int)(x*10)) {
+                    case 20: s = (char*)":8F0ED0014005C\n"; break;
+                    case 25: s = (char*)":8F0ED00190057\n"; break;
+                    case 30: s = (char*)":8F0ED001E0052\n"; break;
+                    case 35: s = (char*)":8F0ED0023004D\n"; break;
+                    case 40: s = (char*)":8F0ED00280048\n"; break;
+                    case 45: s = (char*)":8F0ED002D0043\n"; break;
+                    case 50: s = (char*)":8F0ED0032003E\n"; break;
+                    case 55: s = (char*)":8F0ED00370039\n"; break;
+                    case 60: s = (char*)":8F0ED003C0034\n"; break;
+                    case 65: s = (char*)":8F0ED0041002F\n"; break;
+                    case 70: s = (char*)":8F0ED0046002A\n"; break;
+                    case 75: s = (char*)":8F0ED004B0025\n"; break;
+                    case 80: s = (char*)":8F0ED00500020\n"; break;
+                    case 85: s = (char*)":8F0ED0055001B\n"; break;
+                    case 90: s = (char*)":8F0ED005A0016\n"; break;
+                    case 95: s = (char*)":8F0ED005F0011\n"; break;
+                    case 100: s = (char*)":8F0ED0064000C\n"; break;
+                    case 105: s = (char*)":8F0ED00690007\n"; break;
+                    case 110: s = (char*)":8F0ED006E0002\n"; break;
+                    case 115: s = (char*)":8F0ED007300FD\n"; break;
+                    case 120: s = (char*)":8F0ED007800F8\n"; break;
+                    case 130: s = (char*)":8F0ED008200EE\n"; break;
+                    case 140: s = (char*)":8F0ED008C00E4\n"; break;
+                    case 150: s = (char*)":8F0ED009600DA\n"; break;
+                    case 160: s = (char*)":8F0ED00A000D0\n"; break;
+                    default: // for any other current values (which should not be sent!)
+                      int numP1 = (int)(x*10.0);
+                      int numP2 = (0x70 - numP1) & 0xFF;
+                      char hexP1[3];  // in original code the array has size 2, this cause a compile error, saying that sprintf adds a zero, thus writing 3 bytes
+                      char hexP2[3];
+                      sprintf(hexP1, "%02X", numP1);
+                      sprintf(hexP2, "%02X", numP2);
+                  
+                      // Write to serial port
+                      unsigned char msg[] = { ':', '8', 'F', '0', 'E', 'D' , '0', '0', (unsigned char)hexP1[0], (unsigned char)hexP1[1] , '0', '0' ,(unsigned char)hexP2[0] , (unsigned char)hexP2[1], '\n'};
+                      s = (char*)msg;
+                  }  
+                  // Write string to serial port
+                  return std::vector<unsigned char>( s.begin(), s.end() );
+          # end of 'else'
+    # end of 'on_value'
+
+  # Show value of charging current received from HA
+  - platform : template
+    name: charge current received
+    #id: charge_current
+    unit_of_measurement: 'A'
+    lambda: |-
+      return { id(id_ac_charger_current).state };
+    update_interval: 3s
+
+  # Victron Charger IP22 16A model
+  - platform: victron
+    victron_id: victron16A
+
+    battery_voltage:          # e.g. 26.780 V
+      name: "IP22 16A Battery voltage"
+    battery_current:          # e.g. 3.000 A
+      name: "IP22 16A Battery current"
+    charging_mode_id:         # e.g. 3 (means 'bulk' mode)
+      name: "IP22 16A Charging Mode Id"
+    error_code:               # e.g. 0 (means 'no error')
+      name: "IP22 16A Error Code"
+
+text_sensor:
+  # Victron Charger IP22 16A model
+  - platform: victron
+    victron_id: victron16A
+
+    model_description:        # "Unknown"
+      name: "IP22 16A Model Description"
+    device_type:              # "PID\t0xA332\r\n" -> "Blue Smart IP22 Charger 24|8" <-- A336
+      name: "IP22 16A Device Type"
+    serial_number:            # "SER#\tHQ2249TNFVM\r\n" -> "HQ2249TNFVM"
+      name: "IP22 16A Serial Number"
+    firmware_version_24bit:         # "FWE\t0342FF\r\n" -> unknown ??
+      name: "IP22 16A Firmware Version"
+    error:                    # e.g. "No error"
+      name: "IP22 16A Error"
+    charging_mode:            # e.g. "Bulk"
+      name: "IP22 16A Charging Mode"
+
+  # Define text sensors to get version and time readouts
+  - platform: template
+    id: time_to_text
+    name: "Time"
+
+  - platform: template
+    id: program_version
+    name: "Program Version"
+    lambda: |-
+      return {"$programname v$programversion"};
+
+  # Text sensor showing ESPHome version
+  - platform: version
+    name: "ESPHome Version"
+
+#binary_sensor:
+#  - platform: victron
+#    victron_id: victron8A
+#    load_state:                # IP22: OFF (always)
+#      name: "IP22 8A Load State"
