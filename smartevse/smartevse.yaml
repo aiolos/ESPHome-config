@@ -1,0 +1,127 @@
+esphome:
+  name: smartevse
+  friendly_name: smartevse
+
+esp32:
+  board: lolin_s2_mini
+  variant: ESP32S2
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  baud_rate: 0 # Disable logging over UART
+  level: VERBOSE # NONE, ERROR, WARN, INFO, DEBUG (default), VERBOSE, VERY_VERBOSE
+
+# Enable Home Assistant API
+api:
+
+ota:
+  platform: esphome
+  password: "1d415e50da3e81f167bdd734d80de705"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+captive_portal:
+
+##################################################################
+external_components:
+  - source:
+      type: local
+      path: components
+
+uart:
+  - id: uart_modbus_server
+    baud_rate: 1200
+    parity: NONE
+    stop_bits: 1
+    rx_pin: GPIO9
+    tx_pin: GPIO11
+
+modbus:
+  - uart_id: uart_modbus_server
+    id: modbus_server
+    flow_control_pin: GPIO7
+    disable_crc: true
+
+modbus_controller:
+  - modbus_id: modbus_server
+    id: mb_controller
+    address: 0x0A # Sensorbox is 0x0A / 10
+    update_interval: 3s
+    max_cmd_retries: 1
+
+number:
+  - platform: homeassistant
+    id: evse_number
+    entity_id: input_number.evse_number
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return false;'
+          then:
+          # Do nothing
+
+switch:
+  - platform: output
+    name: "Generic Output"
+    output: 'rs485_sensorbox_readings'
+
+output:
+  - platform: modbus_controller
+    modbus_controller_id: mb_controller
+    id: rs485_sensorbox_readings
+    address: 0x7EFF
+    register_type: coil
+    write_lambda: |-
+      ESP_LOGD("Sensorbox Simulator:", "Received value: %f", id(evse_number).state );
+      float chargeCurrent = id(evse_number).state / 3 * 10;
+      char ct1String[4];
+      char* pBytes = (char*)&chargeCurrent; // Get its bytes
+      // Copy the 4 bytes of the scaled float back to the buffer
+      ct1String[0] = *pBytes++;
+      ct1String[1] = *pBytes++;
+      ct1String[2] = *pBytes++;
+      ct1String[3] = *pBytes;
+      char ctMeasurement[] = { 
+        0xFF,       // Address Field = ff 
+        0x03,       // Control Field = 03
+        0x50, 0x01, // Protocol = 5001
+        0x01,       // Version = 01
+        0x03,       // Number of CTs = 3
+        ct1String[0], ct1String[1], ct1String[2], ct1String[3],
+        ct1String[0], ct1String[1], ct1String[2], ct1String[3],
+        ct1String[0], ct1String[1], ct1String[2], ct1String[3]
+      };
+      unsigned int ctCrc = id(smartevsecrc)->CRC16(ctMeasurement, sizeof(ctMeasurement));
+      unsigned char crc1 = ((unsigned char)(ctCrc));
+      unsigned char crc2 = ((unsigned char)(ctCrc>>8));
+      ESP_LOGD("Sensorbox Simulator: ", "CRC 0x%02X  0x%02X  0x%02X ", ctCrc, crc1, crc2 );
+      ESP_LOGD("Sensorbox Simulator: ", "Current: 0x%02X - 0x%02X - 0x%02X - 0x%02X ", ct1String[0], ct1String[1], ct1String[2], ct1String[3] );
+      
+      payload.push_back(0x7E); // Start character
+      for (int i = 0; i < sizeof(ctMeasurement); i++) {
+        payload.push_back(ctMeasurement[i]);
+      }
+      payload.push_back(crc1);
+      payload.push_back(crc2);
+      payload.push_back(0x7E); // End character
+      return false;
+
+smartevse_crc:
+  id: smartevsecrc
+
+sensor:
+  # Show value of charging current received from HA
+  - platform: template
+    name: evse number received
+    unit_of_measurement: 'A'
+    lambda: |-
+      ESP_LOGD("Template Sensor Lambda","Got new data: %f", id(evse_number).state);
+      id(rs485_sensorbox_readings).turn_on();
+      
+      return { id(evse_number).state };
+    update_interval: 3s
