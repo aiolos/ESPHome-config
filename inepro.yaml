@@ -1,0 +1,308 @@
+## Configuration for Inepro PRO380-Mod energy meter
+# The switch entity gives the option to reset the 'daily' energy counter
+
+esphome:
+  name: inepro
+
+esp8266:
+  board: d1_mini
+
+# Enable/Disable logging
+logger:
+#  level: DEBUG
+#  baud_rate: 0 ## Must be 0 to prevent reading issues and buffer overflows
+
+# Enable Home Assistant API
+api:
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESP-Modbus"
+    password: "configesp"
+
+captive_portal:
+
+uart:
+  - id: mod_bus
+    tx_pin: D7
+    rx_pin: D6
+    baud_rate: 9600
+    parity: EVEN
+    rx_buffer_size: 1024
+
+modbus:
+  flow_control_pin: D5
+  id: modbus1
+  send_wait_time: 1000ms
+  uart_id: mod_bus
+
+modbus_controller:
+  - id: modbus_inepro
+    address: 0x1
+    modbus_id: modbus1
+    setup_priority: -10
+    update_interval: 11s
+
+switch:
+  - platform: template
+    id: reset_day_counter
+    name: "reset_day_counter"
+    optimistic: true
+    assumed_state: false
+    lambda: |-
+      if (id(reset_day_counter).state) {
+        ESP_LOGD("INEPRO","Reset day counter switch true, trigger modbus command");
+        id(reset_day_counter).turn_off();
+        id(reset_day_counter_modbus).turn_on();
+        return false;
+      }
+      return false;
+
+output:
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    id: reset_day_counter_modbus
+    register_type: coil
+    address: 6049
+    write_lambda: |-
+      ESP_LOGD("INEPRO","Execute reset command through modbus");
+      payload.push_back(0x01);
+      payload.push_back(0x10);
+      payload.push_back(0x60);
+      payload.push_back(0x49);
+      payload.push_back(0x00);
+      payload.push_back(0x02);
+      payload.push_back(0x04);
+      payload.push_back(0x00);
+      payload.push_back(0x00);
+      payload.push_back(0x00);
+      payload.push_back(0x00);
+      return true;
+
+sensor:
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L1 Voltage"
+    device_class: voltage
+    state_class: measurement
+    address: 0x5002
+    register_type: holding
+    value_type: FP32
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L2 Voltage"
+    device_class: voltage
+    state_class: measurement
+    address: 0x5004
+    register_type: holding
+    value_type: FP32
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L3 Voltage"
+    device_class: voltage
+    state_class: measurement
+    address: 0x5006
+    register_type: holding
+    value_type: FP32
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Frequency"
+    device_class: frequency
+    state_class: measurement
+    address: 0x5008
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 2
+    unit_of_measurement: "Hz"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L1 Current"
+    device_class: current
+    state_class: measurement
+    address: 0x500C
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 2
+    unit_of_measurement: "A"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L2 Current"
+    device_class: current
+    state_class: measurement
+    address: 0x500E
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 2
+    unit_of_measurement: "A"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L3 Current"
+    device_class: current
+    state_class: measurement
+    address: 0x5010
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 2
+    unit_of_measurement: "A"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Total Active Power"
+    device_class: power
+    state_class: measurement
+    address: 0x5012
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kW"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L1 Active Power"
+    device_class: power
+    state_class: measurement
+    address: 0x5014
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kW"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L2 Active Power"
+    device_class: power
+    state_class: measurement
+    address: 0x5016
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kW"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "L3 Active Power"
+    device_class: power
+    state_class: measurement
+    address: 0x5018
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kW"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Total Reactive Power"
+    device_class: power
+    state_class: measurement
+    address: 0x501A
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kVAr"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Total Apparent Power"
+    device_class: power
+    state_class: measurement
+    address: 0x5022
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kVA"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Power Factor"
+    device_class: power_factor
+    state_class: measurement
+    address: 0x502A
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 2
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Forward Active Energy"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x600C
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kWh"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Reverse Active Energy"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x6018
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kWh"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Total Reactive Energy"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x6024
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kVArh"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Forward Reactive Energy"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x6030
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kVArh"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Reverse Reactive Energy"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x603C
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kVArh"
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_inepro
+    name: "Resettable day counter"
+    device_class: energy
+    state_class: total_increasing
+    address: 0x6049
+    register_type: holding
+    value_type: FP32
+    accuracy_decimals: 3
+    unit_of_measurement: "kWh"
