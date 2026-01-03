@@ -141,11 +141,20 @@ uart:
     #  sequence:
     #    - lambda: UARTDebug::log_string(direction, bytes);
 
+  - id: uart_ip22_12A
+    tx_pin: GPIO17 # ESP32 UART2
+    rx_pin: GPIO16 # ESP32 UART2
+    baud_rate: 19200
+    rx_buffer_size: 256
+
 ### Define the Victron devices
 victron:
   - id: victron16A
     uart_id: uart_ip22_16A
     #throttle: 3s  # send sensor data only every 3s rather than every second
+  - id: victron12A
+    uart_id: uart_ip22_12A
+    #throttle: 3s
 
 ########################################################################################################
 # The code to control the IP22 charger current is based on the following python example from
@@ -259,6 +268,70 @@ sensor:
                   return std::vector<unsigned char>( s.begin(), s.end() );
           # end of 'else'
     # end of 'on_value'
+  - platform: homeassistant
+    name: "AC Charger Current 12A"
+    entity_id: input_number.ac_charger_current_12A
+    id: id_ac_charger_current_12A
+    unit_of_measurement: 'A'
+    device_class: 'current'
+    on_value:
+      then:
+        # - lambda: !lambda |-
+        #     //    ESP_LOGW("main", "new value received %f", id(id_ac_charger_current).state);
+
+        if:
+          condition: # Should we switch off the chargers?
+            lambda: 'return id(id_ac_charger_current_12A).state < 2.0;'
+          then:
+          # Turn off chargers
+          #            homeassistant.service:
+          #              service: switch.turn_off
+          #              data:
+          #                entity_id: switch.tasmota_16, switch.tasmota_17
+          else:
+            - uart.write:
+                id: uart_ip22_12A
+                data: !lambda |-
+                  std::string s;
+                  //id(victron_ve_direct_charge_current_received).publish_state(x); 
+                  switch ((int)(x*10)) {
+                    case 20: s = (char*)":8F0ED0014005C\n"; break;
+                    case 25: s = (char*)":8F0ED00190057\n"; break;
+                    case 30: s = (char*)":8F0ED001E0052\n"; break;
+                    case 35: s = (char*)":8F0ED0023004D\n"; break;
+                    case 40: s = (char*)":8F0ED00280048\n"; break;
+                    case 45: s = (char*)":8F0ED002D0043\n"; break;
+                    case 50: s = (char*)":8F0ED0032003E\n"; break;
+                    case 55: s = (char*)":8F0ED00370039\n"; break;
+                    case 60: s = (char*)":8F0ED003C0034\n"; break;
+                    case 65: s = (char*)":8F0ED0041002F\n"; break;
+                    case 70: s = (char*)":8F0ED0046002A\n"; break;
+                    case 75: s = (char*)":8F0ED004B0025\n"; break;
+                    case 80: s = (char*)":8F0ED00500020\n"; break;
+                    case 85: s = (char*)":8F0ED0055001B\n"; break;
+                    case 90: s = (char*)":8F0ED005A0016\n"; break;
+                    case 95: s = (char*)":8F0ED005F0011\n"; break;
+                    case 100: s = (char*)":8F0ED0064000C\n"; break;
+                    case 105: s = (char*)":8F0ED00690007\n"; break;
+                    case 110: s = (char*)":8F0ED006E0002\n"; break;
+                    case 115: s = (char*)":8F0ED007300FD\n"; break;
+                    case 120: s = (char*)":8F0ED007800F8\n"; break;
+                    default: // for any other current values (which should not be sent!)
+                      int numP1 = (int)(x*10.0);
+                      int numP2 = (0x70 - numP1) & 0xFF;
+                      char hexP1[3];  // in original code the array has size 2, this cause a compile error, saying that sprintf adds a zero, thus writing 3 bytes
+                      char hexP2[3];
+                      sprintf(hexP1, "%02X", numP1);
+                      sprintf(hexP2, "%02X", numP2);
+                  
+                      // Write to serial port
+                      unsigned char msg[] = { ':', '8', 'F', '0', 'E', 'D' , '0', '0', (unsigned char)hexP1[0], (unsigned char)hexP1[1] , '0', '0' ,(unsigned char)hexP2[0] , (unsigned char)hexP2[1], '\n'};
+                      s = (char*)msg;
+                  }  
+                  // Write string to serial port
+                  return std::vector<unsigned char>( s.begin(), s.end() );
+          # end of 'else'
+    # end of 'on_value'
 
   # Show value of charging current received from HA
   - platform : template
@@ -267,6 +340,14 @@ sensor:
     unit_of_measurement: 'A'
     lambda: |-
       return { id(id_ac_charger_current).state };
+    update_interval: 3s
+
+  - platform : template
+    name: charge current received 12A
+    #id: charge_current
+    unit_of_measurement: 'A'
+    lambda: |-
+      return { id(id_ac_charger_current_12A).state };
     update_interval: 3s
 
   # Victron Charger IP22 16A model
@@ -281,6 +362,19 @@ sensor:
       name: "IP22 16A Charging Mode Id"
     error_code:               # e.g. 0 (means 'no error')
       name: "IP22 16A Error Code"
+
+  # Victron Charger IP22 12A model
+  - platform: victron
+    victron_id: victron12A
+
+    battery_voltage:          # e.g. 26.780 V
+      name: "IP22 12A Battery voltage"
+    battery_current:          # e.g. 3.000 A
+      name: "IP22 12A Battery current"
+    charging_mode_id:         # e.g. 3 (means 'bulk' mode)
+      name: "IP22 12A Charging Mode Id"
+    error_code:               # e.g. 0 (means 'no error')
+      name: "IP22 12A Error Code"
 
 text_sensor:
   # Victron Charger IP22 16A model
@@ -299,6 +393,23 @@ text_sensor:
       name: "IP22 16A Error"
     charging_mode:            # e.g. "Bulk"
       name: "IP22 16A Charging Mode"
+
+  # Victron Charger IP22 12A model
+  - platform: victron
+    victron_id: victron12A
+
+    model_description:        # "Unknown"
+      name: "IP22 12A Model Description"
+    device_type:              # "PID\t0xA334\r\n" = "Blue Smart IP22 Charger 24|12"
+      name: "IP22 12A Device Type"
+    serial_number:            # SER#\tHQ2245CPW6H\r\n" -> IP22: "HQ2245CPW6H"
+      name: "IP22 12A Serial Number"
+    firmware_version:         # "FWE\t0342FF\r\n" -> unknown ??
+      name: "IP22 12A Firmware Version"
+    error:                     # e.g "No error"
+      name: "IP22 12A Error"
+    charging_mode:             # e.g. "Bulk"
+      name: "IP22 12A Charging Mode"
 
   # Define text sensors to get version and time readouts
   - platform: template

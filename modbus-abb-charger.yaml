@@ -1,15 +1,15 @@
-#substitutions:
-#  name: bluesmart-charger
-#  external_components_source: github://KinDR007/VictronMPPT-ESPHOME@main
+substitutions:
+  name: bluesmart-charger
+  external_components_source: github://KinDR007/VictronMPPT-ESPHOME@main
 
 esphome:
-  name: modbusabb
+  name: modbuscharger
   platform: ESP8266
   board: d1_mini
 
-#external_components:
-#  - source: ${external_components_source}
-#    refresh: 0s
+external_components:
+  - source: ${external_components_source}
+    refresh: 0s
 
 # Enable/Disable logging
 logger:
@@ -40,55 +40,36 @@ uart:
     baud_rate: 9600
     parity: EVEN
     rx_buffer_size: 1024
-#  - id: uart_0
-#    tx_pin: GPIO01  # Not connected! The communication is read-only
-#    rx_pin: GPIO03  # Connect this GPIO and GND to the MPPT charger
-#    baud_rate: 19200
-#    rx_buffer_size: 256
+  - id: uart_0
+    tx_pin: GPIO01  # Not connected! The communication is read-only
+    rx_pin: GPIO03  # Connect this GPIO and GND to the MPPT charger
+    baud_rate: 19200
+    rx_buffer_size: 256
 
-#victron:
-#  uart_id: uart_0
-#  id: victron0
-#  throttle: 10s
+victron:
+  uart_id: uart_0
+  id: victron0
+  throttle: 10s
 
 modbus:
   flow_control_pin: D5
-  id: modbus1
+  id: modbus2
   send_wait_time: 1000ms
   uart_id: mod_bus
 
 modbus_controller:
-  - id: abb_ev
-    address: 0x1
-    modbus_id: modbus1
-    setup_priority: -10
-    #command_throttle: 250ms
-    update_interval: 11s
   - id: abb_charger
     address: 0x2
-    modbus_id: modbus1
-    setup_priority: -11
+    modbus_id: modbus2
+    setup_priority: -10
     #command_throttle: 250ms
-    update_interval: 13s
+    update_interval: 15s
 
 sensor:
 ## 1 Total Energy (kWh)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
-    name: "Import energy total"
-    address: 0x5000
-    register_type: holding
-    value_type: U_QWORD
-    device_class: "energy"
-    unit_of_measurement: "kWh"
-    accuracy_decimals: 4
-    state_class: "total_increasing"
-    filters:
-    - multiply: 0.0001
-
-  - platform: modbus_controller
     modbus_controller_id: abb_charger
-    name: "Victron charger energy"
+    name: "Import energy total"
     address: 0x5000
     register_type: holding
     value_type: U_QWORD
@@ -102,7 +83,7 @@ sensor:
   ## 3 Instantaneous values
   ## 3.1 Voltage (V)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Voltage L1-N"
     address: 0x5B00
     register_type: holding
@@ -115,7 +96,7 @@ sensor:
 
   ## 3.2 Current (A)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Current L1"
     address: 0x5B0C
     register_type: holding
@@ -128,20 +109,8 @@ sensor:
 
   ## 3.3 Active Power (Watt)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
-    name: "Power total"
-    address: 0x5B14
-    register_type: holding
-    value_type: S_DWORD
-    accuracy_decimals: 2
-    device_class: power
-    unit_of_measurement: "W"
-    filters:
-    - multiply: 0.01
-
-  - platform: modbus_controller
     modbus_controller_id: abb_charger
-    name: "Victron charger power"
+    name: "Power total"
     address: 0x5B14
     register_type: holding
     value_type: S_DWORD
@@ -153,7 +122,7 @@ sensor:
 
   ## 3.4 Frequency (Hz)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Frequency"
     address: 0x5B2C
     register_type: holding
@@ -165,7 +134,7 @@ sensor:
     - multiply: 0.01
   ## 3.5 Power factor (-)
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Power factor total"
     address: 0x5B3A
     register_type: holding
@@ -177,7 +146,7 @@ sensor:
 
   # 7 Info Rate
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     id: rated_voltage
     name: "Rated Voltage"
     address: 0x040C
@@ -190,7 +159,7 @@ sensor:
     filters:
     - multiply: 0.1
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     id: rated_current
     name: "Rated Current"
     address: 0x040E
@@ -203,7 +172,7 @@ sensor:
     filters:
     - multiply: 0.01
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     id: maximum_current
     name: "Maximum Current"
     address: 0x0411
@@ -216,7 +185,7 @@ sensor:
     filters:
     - multiply: 0.01
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     id: rated_frequency
     name: "Rated Frequency"
     address: 0x0410
@@ -229,7 +198,7 @@ sensor:
     filters:
     - multiply: 0.01
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     id: active_pulse_constant
     name: "Active pulse constant"
     address: 0x0413
@@ -239,22 +208,22 @@ sensor:
     unit_of_measurement: "imp/kWh"
     skip_updates: 60
 
-#  ## Victron sensors
-#  - platform: victron
-#    victron_id: victron0
-#    battery_voltage:
-#      name: "${name} output voltage"
-#    battery_current:
-#      name: "${name} current"
-#    error_code:
-#      name: "${name} error code"
-#    charging_mode_id:
-#      name: "${name} mode id"
+  ## Victron sensors
+  - platform: victron
+    victron_id: victron0
+    battery_voltage:
+      name: "${name} output voltage"
+    battery_current:
+      name: "${name} current"
+    error_code:
+      name: "${name} error code"
+    charging_mode_id:
+      name: "${name} mode id"
 
   ## 4 Production data and identification
 text_sensor:
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Serial Number"
     address: 0x0402
     register_type: holding
@@ -263,7 +232,7 @@ text_sensor:
     raw_encode: HEXBYTES
     skip_updates: 60
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Meter firmware version"
     address: 0x8908
     register_type: holding
@@ -271,7 +240,7 @@ text_sensor:
     entity_category: diagnostic
     skip_updates: 60
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Type designation"
     address: 0x8960
     register_type: holding
@@ -279,26 +248,26 @@ text_sensor:
     entity_category: diagnostic
     skip_updates: 60
 
-#  ## Victron sensors
-#  - platform: victron
-#    victron_id: victron0
-#    device_type:
-#      name: "${name} device type"
-#    firmware_version_24bit:
-#      name: "${name} firmware version"
-#    serial_number:
-#      name: "${name} serial number"
-#    hardware_revision:
-#      name: "${name} hardware number"
-#    error:
-#      name: "${name} error"
-#    charging_mode:
-#      name: "${name} charging mode"
+  ## Victron sensors
+  - platform: victron
+    victron_id: victron0
+    device_type:
+      name: "${name} device type"
+    firmware_version_24bit:
+      name: "${name} firmware version"
+    serial_number:
+      name: "${name} serial number"
+    hardware_revision:
+      name: "${name} hardware number"
+    error:
+      name: "${name} error"
+    charging_mode:
+      name: "${name} charging mode"
 
 number:
   ## 6 Display
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Auto Mode Duration"
     register_type: holding
     address: 0x1000
@@ -310,7 +279,7 @@ number:
     icon: mdi:timer
     entity_category: config
 #  - platform: modbus_controller
-#    modbus_controller_id: abb_ev
+#    modbus_controller_id: abb_charger
 #    name: "Auto Mode Exiting Duration"
 #    address: 0x1003
 #    value_type: U_WORD
@@ -322,7 +291,7 @@ number:
 #    icon: mdi:timer
 #    entity_category: config
 #  - platform: modbus_controller
-#    modbus_controller_id: abb_ev
+#    modbus_controller_id: abb_charger
 #    id: backlight_on
 #    name: "Backlight On"
 #    register_type: holding
@@ -336,7 +305,7 @@ number:
 #    icon: mdi:timer
   # 7 Info Rate
   - platform: modbus_controller
-    modbus_controller_id: abb_ev
+    modbus_controller_id: abb_charger
     name: "Communication Address"
     entity_category: config
     register_type: holding

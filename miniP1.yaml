@@ -2,6 +2,8 @@ esphome:
   name: minip1
   platform: ESP8266
   board: esp01_1m
+  platformio_options:
+    upload_speed: 115200
 
 dsmr:
   id: dsmr_instance
@@ -67,7 +69,7 @@ text_sensor:
 # Disable logging (uses the same uart as P1)
 logger:
   level: WARN
-  baud_rate: 0
+  baud_rate: 115200
   
 # Enable Home Assistant API
 api:

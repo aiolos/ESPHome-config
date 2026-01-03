@@ -1,12 +1,12 @@
 esphome:
-  name: modbus
+  name: eastron-goodwe
   platform: ESP8266
   board: d1_mini
 
 # Enable/Disable logging
 logger:
   #level: VERBOSE
-  baud_rate: 0 ## Must be 0 to prevent reading issues and buffer overflows
+  #baud_rate: 0
 
 # Enable Home Assistant API
 api:
@@ -20,10 +20,15 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "ESP-Modbus"
+    ssid: "ESP-EastronGoodwe"
     password: "configesp"
 
 captive_portal:
+
+# Do request do Domoticz
+http_request:
+  useragent: esphome/device
+  timeout: 10s
 
 uart:
   id: mod_bus
@@ -31,7 +36,6 @@ uart:
   rx_pin: D6
   baud_rate: 9600
   stop_bits: 1
-  rx_buffer_size: 1024
   
 modbus:
   flow_control_pin: D5
@@ -61,7 +65,7 @@ sensor:
       - multiply: 0.1
 
   - platform: modbus_controller
-    modbus_controller_id: goodwe  
+    modbus_controller_id: goodwe
     id: pv_power
     name: "Feeding Power"
     address: 0x0233
@@ -69,6 +73,14 @@ sensor:
     register_type: holding
     value_type: U_WORD
     accuracy_decimals: 0
+    on_value:
+    - http_request.get:
+        url: !lambda |-
+          char buf1[64];
+          char buf2[64];
+          sprintf(buf1, "%0.0f", id(pv_power).state);
+          sprintf(buf2, "%0.3f", id(pv_total_energy).state);
+          return ((std::string) "http://192.168.38.208:8080/json.htm?type=command&param=udevice&idx=4265&nvalue=0&svalue=" + buf1 + ";" + buf2).c_str();
 
   - platform: modbus_controller
     modbus_controller_id: goodwe
@@ -80,7 +92,7 @@ sensor:
     value_type: U_WORD
     accuracy_decimals: 1
     filters:
-      - multiply: 0.1
+      - multiply: 100
 
   - platform: modbus_controller
     modbus_controller_id: goodwe
@@ -99,7 +111,7 @@ sensor:
     id: pv_e_day
     name: "E-Day"
     address: 0x0320
-    unit_of_measurement: "kW"
+    unit_of_measurement: "kWh"
     register_type: holding
     value_type: U_WORD
     accuracy_decimals: 1
@@ -126,3 +138,31 @@ sensor:
     value_type: U_DWORD
     accuracy_decimals: 0
 
+  - platform: sdm_meter
+    phase_a:
+      current:
+        name: "SDM220M Current"
+      voltage:
+        name: "SDM220M Voltage"
+      active_power:
+        name: "SDM220M Power"
+      power_factor:
+        name: "SDM220M Power Factor"
+      apparent_power:
+        name: "SDM220M Apparent Power"
+      reactive_power:
+        name: "SDM220M Reactive Power"
+      phase_angle:
+        name: "SDM220M Phase Angle"
+    frequency:
+      name: "SDM220M Frequency"
+    import_active_energy:
+      name: "SDM220M Import Active Energy"
+    export_active_energy:
+      name: "SDM220M Export Active Energy"
+    import_reactive_energy:
+      name: "SDM220M Import Reactive Energy"
+    export_reactive_energy:
+      name: "SDM220M Export Reactive Energy"
+    update_interval: 10s
+    address: 1
