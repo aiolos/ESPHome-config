@@ -1,0 +1,63 @@
+substitutions:
+  devicename: "waveshare"
+
+esphome:
+  name: waveshare-epaper
+  friendly_name: waveshare-epaper
+
+esp32:
+  variant: esp32
+  framework:
+    type: arduino
+
+logger:
+  level: DEBUG
+  baud_rate: 0
+
+sensor:
+  - platform: adc
+    pin: GPIO36
+    name: "${devicename} Battery voltage"
+    id: battery_voltage
+    icon: mdi:battery
+    device_class: voltage
+    attenuation: auto # without attenuation the adc is saturated (VBat/3 > 1.1 V)
+    filters:
+      - multiply: 3
+    update_interval: 60s
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO14
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO12
+      inverted: true # user button pull IO12 to GND
+      mode:          # pin as input and enable pull up
+        input: true
+        pullup: true
+    name: "${devicename} button"
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - logger.log: "Button pressed"
+
+font:
+  - file: "gfonts://Roboto"
+    id: roboto
+    size: 20
+
+display:
+  - platform: waveshare_epaper
+    cs_pin: GPIO15
+    dc_pin: GPIO27
+    busy_pin: GPIO25
+    reset_pin: GPIO26
+    model: 2.13in-ttgo-dke # choose your display size here
+    rotation: 270
+    full_update_every: 12 # every 12th time
+    update_interval: 60s
+    lambda: |-
+      it.print(0, 0, id(roboto), "Hello From ESPHome!");
