@@ -196,7 +196,7 @@ sensor:
     name: "${prefix} Production Total"
     address: 0x423
     register_type: read
-    value_type: U_WORD
+    value_type: U_DWORD_R
     accuracy_decimals: 1
     unit_of_measurement: kWh
     device_class: energy
@@ -208,7 +208,7 @@ sensor:
     name: "${prefix} Production Today"
     address: 0x425
     register_type: read
-    value_type: U_WORD
+    value_type: U_DWORD_R
     accuracy_decimals: 1
     unit_of_measurement: kWh
     device_class: energy
